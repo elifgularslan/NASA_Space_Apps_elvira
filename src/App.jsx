@@ -1,14 +1,87 @@
-import { useState, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { moonData } from './data/moonData';
 import { marsData } from './data/marsData';
 import { deepSpaceData } from './data/deepSpaceData';
 
 const missions = [moonData, marsData, deepSpaceData];
 
+// SİYAH ARKA PLANI (VE DAMALI DESENİ) OTOMATİK ŞEFFAF YAPAN AKILLI BİLEŞEN
+function TransparentPlanet({ src, alt }) {
+  const [cleanSrc, setCleanSrc] = useState(src);
+
+  useEffect(() => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = src;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
+
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imgData.data;
+      const w = canvas.width;
+      const h = canvas.height;
+
+      // Köşelerden başlayarak (Flood Fill mantığıyla) dış arka planı tamamen şeffaf yap
+      // Böylece gezegenin kendi içindeki koyu kraterler ve siyah çerçevesi bozulmaz!
+      const visited = new Uint8Array(w * h);
+      const queue = [0, w - 1, (h - 1) * w, h * w - 1];
+
+      const isBgPixel = (idx) => {
+        const r = data[idx];
+        const g = data[idx + 1];
+        const b = data[idx + 2];
+        // Saf siyah arka plan pikselleri
+        const isBlack = r < 18 && g < 18 && b < 22;
+        return isBlack;
+      };
+
+      while (queue.length > 0) {
+        const p = queue.pop();
+        if (p < 0 || p >= w * h || visited[p]) continue;
+        visited[p] = 1;
+
+        const idx = p * 4;
+        if (isBgPixel(idx)) {
+          data[idx + 3] = 0; // Tamamen şeffaf yap!
+          const x = p % w;
+          const y = Math.floor(p / w);
+          if (x > 0) queue.push(p - 1);
+          if (x < w - 1) queue.push(p + 1);
+          if (y > 0) queue.push(p - w);
+          if (y < h - 1) queue.push(p + w);
+        }
+      }
+
+      // Yıldızların arasındaki iç siyah boşlukları da temizle (gezegenin merkez dairesi hariç)
+      const cx = w / 2;
+      const cy = h / 2;
+      const planetRadius = w * 0.28; // Gezegenin iç kısmını koru
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const dist = Math.hypot(x - cx, y - cy);
+          if (dist > planetRadius) {
+            const idx = (y * w + x) * 4;
+            if (data[idx] < 18 && data[idx + 1] < 18 && data[idx + 2] < 22) {
+              data[idx + 3] = 0;
+            }
+          }
+        }
+      }
+
+      ctx.putImageData(imgData, 0, 0);
+      setCleanSrc(canvas.toDataURL('image/png'));
+    };
+  }, [src]);
+
+  return <img src={cleanSrc} alt={alt} className="pixel-planet-img" />;
+}
+
 export default function App() {
-  const [stage, setStage] = useState('intro');
-  const [textPhase, setTextPhase] = useState('hidden');
-  const [userReadyToProceed, setUserReadyToProceed] = useState(false);
+  const [stage, setStage] = useState('intro_start');
 
   const [selectedMission, setSelectedMission] = useState(null);
   const [currentLevelIndex, setCurrentLevelIndex] = useState(0);
@@ -16,37 +89,8 @@ export default function App() {
   const [activeObject, setActiveObject] = useState(null);
   const [showHint, setShowHint] = useState(false);
 
-  const introVideoRef = useRef(null);
-
-  const handleIntroTimeUpdate = () => {
-    const vid = introVideoRef.current;
-    if (!vid) return;
-
-    const current = vid.currentTime;
-
-    if (current < 7.0 && !userReadyToProceed) {
-      if (textPhase !== 'hidden') setTextPhase('hidden');
-    }
-    else if (current >= 7.0 && !userReadyToProceed) {
-      if (textPhase !== 'visible') setTextPhase('visible');
-
-      if (current >= 13.0) {
-        vid.currentTime = 7.5;
-        vid.play();
-      }
-    }
-  };
-
   const handleContinueAfterReading = () => {
-    setUserReadyToProceed(true);
-    setTextPhase('fading');
-    if (introVideoRef.current) {
-      introVideoRef.current.play();
-    }
-  };
-
-  const handleIntroEnded = () => {
-    setStage('select');
+    setStage('intro_end');
   };
 
   const handleSelectMission = (mission) => {
@@ -84,55 +128,29 @@ export default function App() {
     }
   };
 
-  // HAREKETLİ RETRO GEZEGEN İLLÜSTRASYONLARI
   const renderPlanetArt = (id) => {
     if (id === 'moon') {
       return (
-        <div className="planet-icon moon-art">
-          <div className="crater c1"><div className="sh"></div></div>
-          <div className="crater c2"><div className="sh"></div></div>
-          <div className="crater c3"><div className="sh"></div></div>
-          <div className="crater c4"><div className="sh"></div></div>
-          <div className="crater c5"><div className="sh"></div></div>
-          <div className="surface-patch p1"></div>
-          <div className="surface-patch p2"></div>
-          <div className="pixel-dust pd1"></div>
-          <div className="pixel-dust pd2"></div>
-          <div className="pixel-dust pd3"></div>
+        <div className="pixel-planet-wrapper">
+          <TransparentPlanet src="/images/moon.jpg" alt="The Moon" />
         </div>
       );
     }
     if (id === 'mars') {
       return (
-        <div className="planet-icon mars-art">
-          <div className="mars-stripe s1"></div>
-          <div className="mars-stripe s2"></div>
-          <div className="mars-stripe s3"></div>
-          <div className="crater m1"><div className="sh"></div></div>
-          <div className="crater m2"><div className="sh"></div></div>
-          <div className="crater m3"><div className="sh"></div></div>
-          <div className="polar-cap"></div>
-          <div className="pixel-dust pd1"></div>
-          <div className="pixel-dust pd2"></div>
-          <div className="pixel-dust pd3"></div>
+        <div className="pixel-planet-wrapper">
+          <TransparentPlanet src="/images/mars.jpg" alt="Mars" />
         </div>
       );
     }
     return (
-      <div className="planet-icon deepspace-art">
-        <div className="space-planet-inner">
-          <div className="pattern pt1"></div>
-          <div className="pattern pt2"></div>
-        </div>
-        <div className="ring-back"></div>
-        <div className="ring-front"></div>
-        <div className="nebula-dust"></div>
-        <div className="cosmic-star cs1"></div>
-        <div className="cosmic-star cs2"></div>
-        <div className="cosmic-star cs3"></div>
+      <div className="pixel-planet-wrapper">
+        <TransparentPlanet src="/images/deepspace.jpg" alt="Deep Space" />
       </div>
     );
   };
+
+  const isIntroStage = stage === 'intro_start' || stage === 'intro_read' || stage === 'intro_end';
 
   return (
     <div className="space-app-root">
@@ -167,129 +185,39 @@ export default function App() {
           font-family: 'Silkscreen', monospace;
         }
 
-        /* HAREKETLİ GEZEGEN STİLLERİ (Hafifçe küçültüldü) */
-        .planet-icon {
-          width: 95px;
-          height: 95px;
-          margin: 12px auto 16px auto;
-          border-radius: 50%;
-          position: relative;
+        .bg-media {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100vw;
+          height: 100vh;
+          object-fit: cover;
+          z-index: 0;
+        }
+
+        /* 2D PIXEL ART RESİM STİLLERİ */
+        .pixel-planet-wrapper {
+          width: 160px;
+          height: 160px;
+          margin: 6px auto 10px auto;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          animation: floatPlanet 4.5s infinite ease-in-out;
+        }
+
+        .pixel-planet-img {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
           image-rendering: pixelated;
+          image-rendering: crisp-edges;
         }
 
         @keyframes floatPlanet {
           0%, 100% { transform: translateY(0) scale(1); }
           50% { transform: translateY(-6px) scale(1.03); }
         }
-
-        .moon-art {
-          background: radial-gradient(circle at 35% 35%, #e2e8f0 0%, #cbd5e1 35%, #94a3b8 65%, #475569 90%, #1e293b 100%);
-          box-shadow: 0 0 30px rgba(56, 189, 248, 0.4), inset -4px -4px 0px rgba(0,0,0,0.15);
-          animation: floatPlanet 4.5s infinite ease-in-out;
-        }
-        .moon-art .crater {
-          position: absolute; border-radius: 50%; background: #475569;
-          box-shadow: inset 2px 2px 0px rgba(0,0,0,0.4), 1px 1px 0px rgba(255,255,255,0.15);
-        }
-        .moon-art .crater .sh {
-          width: 80%; height: 80%; border-radius: 50%; background: #334155; margin-top: 15%; margin-left: 15%; opacity: 0.8;
-        }
-        .moon-art .c1 { width: 20px; height: 20px; top: 18px; left: 14px; }
-        .moon-art .c2 { width: 13px; height: 13px; bottom: 18px; right: 20px; }
-        .moon-art .c3 { width: 10px; height: 10px; top: 40px; left: 12px; }
-        .moon-art .c4 { width: 8px; height: 8px; top: 16px; right: 24px; }
-        .moon-art .c5 { width: 6px; height: 6px; bottom: 28px; left: 38px; }
-        .moon-art .surface-patch {
-          position: absolute; border-radius: 40%; background: rgba(255,255,255,0.12); filter: blur(1px);
-        }
-        .moon-art .p1 { width: 13px; height: 7px; top: 10px; left: 26px; transform: rotate(-15deg); }
-        .moon-art .p2 { width: 10px; height: 10px; bottom: 12px; left: 18px; }
-
-        .mars-art {
-          background: radial-gradient(circle at 35% 35%, #f97316 0%, #ea580c 40%, #c2410c 70%, #7c2d12 90%, #3f1a0a 100%);
-          box-shadow: 0 0 30px rgba(249, 115, 22, 0.4), inset -4px -4px 0px rgba(0,0,0,0.2);
-          animation: floatPlanet 5s infinite ease-in-out;
-          overflow: hidden;
-        }
-        .mars-art .mars-stripe {
-          position: absolute; background: rgba(67, 20, 7, 0.35); transform: rotate(-12deg);
-        }
-        .mars-art .s1 { width: 110px; height: 7px; top: 16px; left: -10px; }
-        .mars-art .s2 { width: 120px; height: 10px; top: 38px; left: -15px; background: rgba(67, 20, 7, 0.45); }
-        .mars-art .s3 { width: 90px; height: 6px; bottom: 18px; left: -5px; }
-        .mars-art .crater {
-          position: absolute; border-radius: 50%; background: #431407; box-shadow: inset 1px 1px 0px rgba(0,0,0,0.5);
-        }
-        .mars-art .crater .sh {
-          width: 80%; height: 80%; border-radius: 50%; background: #2d0e05; margin-top: 15%; margin-left: 15%;
-        }
-        .mars-art .m1 { width: 11px; height: 8px; top: 22px; right: 22px; }
-        .mars-art .m2 { width: 13px; height: 11px; bottom: 22px; left: 12px; }
-        .mars-art .m3 { width: 7px; height: 5px; top: 52px; right: 28px; }
-        .mars-art .polar-cap {
-          position: absolute; width: 24px; height: 7px; background: #ffedd5; top: 2px; left: 35px; border-radius: 50%; opacity: 0.85; filter: blur(0.5px);
-        }
-
-        .deepspace-art {
-          background: radial-gradient(circle at 40% 40%, #c084fc 0%, #a855f7 35%, #7e22ce 65%, #4c1d95 90%, #1e1b4b 100%);
-          box-shadow: 0 0 35px rgba(168, 85, 247, 0.45), inset -3px -3px 0px rgba(0,0,0,0.25);
-          animation: floatPlanet 4.8s infinite ease-in-out;
-        }
-        .deepspace-art .space-planet-inner {
-          position: absolute; width: 100%; height: 100%; border-radius: 50%; overflow: hidden;
-        }
-        .deepspace-art .pattern {
-          position: absolute; background: rgba(59, 7, 100, 0.45); transform: rotate(-18deg);
-        }
-        .deepspace-art .pt1 { width: 110px; height: 12px; top: 20px; left: -10px; }
-        .deepspace-art .pt2 { width: 100px; height: 9px; bottom: 24px; left: -5px; }
-
-        @keyframes rotateRing {
-          0% { transform: translate(-50%, -50%) rotate(-18deg) scaleY(1); }
-          50% { transform: translate(-50%, -50%) rotate(-18deg) scaleY(1.05); }
-          100% { transform: translate(-50%, -50%) rotate(-18deg) scaleY(1); }
-        }
-        .deepspace-art .ring-back {
-          position: absolute; top: 50%; left: 50%; width: 130px; height: 24px;
-          border: 5px solid #f3e8ff; border-radius: 50%;
-          transform: translate(-50%, -50%) rotate(-18deg);
-          clip-path: inset(0px 0px 12px 0px);
-          box-shadow: 0 0 12px rgba(233, 213, 255, 0.5);
-          animation: rotateRing 4.8s infinite ease-in-out;
-          z-index: 1;
-        }
-        .deepspace-art .ring-front {
-          position: absolute; top: 50%; left: 50%; width: 130px; height: 24px;
-          border: 5px solid #f3e8ff; border-radius: 50%;
-          transform: translate(-50%, -50%) rotate(-18deg);
-          clip-path: inset(11px 0px 0px 0px);
-          box-shadow: 0 0 12px rgba(233, 213, 255, 0.8);
-          animation: rotateRing 4.8s infinite ease-in-out;
-          z-index: 3;
-        }
-
-        @keyframes blinkStar {
-          0%, 100% { opacity: 0.3; transform: scale(0.8); }
-          50% { opacity: 1; transform: scale(1.2); }
-        }
-        .deepspace-art .cosmic-star {
-          position: absolute; background: #fff; width: 4px; height: 4px; transform: rotate(45deg); animation: blinkStar 2s infinite ease-in-out; z-index: 4;
-        }
-        .deepspace-art .cs1 { top: -2px; right: 10px; animation-delay: 0.3s; }
-        .deepspace-art .cs2 { bottom: 8px; left: -4px; animation-delay: 0.8s; }
-        .deepspace-art .cs3 { top: 28px; right: -6px; animation-delay: 1.2s; }
-
-        @keyframes driftDust {
-          0% { transform: translateX(0) translateY(0); opacity: 0.3; }
-          50% { transform: translateX(3px) translateY(-2px); opacity: 0.8; }
-          100% { transform: translateX(0) translateY(0); opacity: 0.3; }
-        }
-        .pixel-dust {
-          position: absolute; width: 2px; height: 2px; background: rgba(255, 255, 255, 0.4); box-shadow: 0 0 4px rgba(255,255,255,0.3); animation: driftDust 3s infinite ease-in-out;
-        }
-        .pd1 { top: 15%; left: 10%; animation-delay: 0.2s; }
-        .pd2 { bottom: 25%; right: 10%; animation-delay: 0.9s; }
-        .pd3 { top: 75%; left: 15%; animation-delay: 0.5s; }
 
         .cinematic-overlay {
           position: relative;
@@ -306,7 +234,7 @@ export default function App() {
 
         .story-floater {
           max-width: 860px;
-          transition: opacity 1.5s ease-in-out, transform 1.8s cubic-bezier(0.22, 1, 0.36, 1), filter 1.5s ease;
+          transition: opacity 1.2s ease-in-out, transform 1.6s cubic-bezier(0.22, 1, 0.36, 1), filter 1.2s ease;
         }
 
         .story-floater.hidden {
@@ -401,33 +329,27 @@ export default function App() {
 
         .sector-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
           gap: 28px;
-          max-width: 1100px;
+          max-width: 1040px;
           width: 100%;
-          margin-top: 28px;
+          margin-top: 24px;
         }
 
-        /* SEÇENEK KARTLARI BİRAZ DAHA KÜÇÜLTÜLDÜ (min-height ve padding) */
         .retro-sector-card {
-          background: rgba(8, 10, 24, 0.85);
+          background: rgba(8, 10, 24, 0.84);
           backdrop-filter: blur(8px);
-          padding: 28px 22px;
+          padding: 26px 22px;
           cursor: pointer;
           position: relative;
           text-align: center;
           display: flex;
           flex-direction: column;
           justify-content: space-between;
-          min-height: 410px;
-          transition: transform 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
-          clip-path: polygon(
-            0 12px, 12px 12px, 12px 0,
-            calc(100% - 12px) 0, calc(100% - 12px) 12px, 100% 12px,
-            100% calc(100% - 12px), calc(100% - 12px) calc(100% - 12px), calc(100% - 12px) 100%,
-            12px 100%, 12px calc(100% - 12px), 0 calc(100% - 12px)
-          );
+          min-height: 420px;
+          border-radius: 16px;
           border: 3px solid rgba(148, 163, 184, 0.4);
+          transition: transform 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
         }
 
         .retro-sector-card:hover {
@@ -453,48 +375,67 @@ export default function App() {
         }
       `}</style>
 
-      {stage === 'intro' && (
+      {/* 1. AŞAMA ARKA PLANI */}
+      {stage === 'intro_start' && (
         <video
-          ref={introVideoRef}
           src="/videos/opening.mp4"
           autoPlay
           muted
           playsInline
-          onTimeUpdate={handleIntroTimeUpdate}
-          onEnded={handleIntroEnded}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100vw',
-            height: '100vh',
-            objectFit: 'cover',
-            zIndex: 0,
-            filter: 'brightness(0.95)'
-          }}
+          onEnded={() => setStage('intro_read')}
+          className="bg-media"
+          style={{ filter: 'brightness(0.95)' }}
         />
       )}
 
+      {/* 2. AŞAMA ARKA PLANI */}
+      {stage === 'intro_read' && (
+        <video
+          src="/videos/gifroket.mp4"
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="bg-media"
+          style={{ filter: 'brightness(0.85)' }}
+        />
+      )}
+
+      {/* 3. AŞAMA ARKA PLANI */}
+      {stage === 'intro_end' && (
+        <video
+          src="/videos/opening2.mp4"
+          autoPlay
+          muted
+          playsInline
+          onEnded={() => setStage('select')}
+          className="bg-media"
+          style={{ filter: 'brightness(0.95)' }}
+        />
+      )}
+
+      {/* 4. AŞAMA ARKA PLANI */}
       {stage === 'select' && (
         <img
           src="/videos/gif.gif"
           alt="Space Background Loop"
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100vw',
-            height: '100vh',
-            objectFit: 'cover',
-            zIndex: 0,
-            filter: 'brightness(0.65) contrast(1.1)'
-          }}
+          className="bg-media"
+          style={{ filter: 'brightness(0.65) contrast(1.1)' }}
         />
       )}
 
-      {stage === 'intro' && (
+      {/* SİNEMATİK YAZI KATMANI */}
+      {isIntroStage && (
         <div className="cinematic-overlay">
-          <div className={`story-floater ${textPhase}`}>
+          <div
+            className={`story-floater ${
+              stage === 'intro_start'
+                ? 'hidden'
+                : stage === 'intro_read'
+                ? 'visible'
+                : 'fading'
+            }`}
+          >
             <h1 className="cinematic-heading">
               Abandoned, But Not Forgotten
             </h1>
@@ -508,7 +449,7 @@ export default function App() {
               onClick={handleContinueAfterReading}
               className="continue-cosmos-btn"
               style={{
-                pointerEvents: textPhase === 'visible' ? 'auto' : 'none'
+                pointerEvents: stage === 'intro_read' ? 'auto' : 'none'
               }}
             >
               [ CONTINUE INTO THE COSMOS &gt;&gt; ]
@@ -525,10 +466,11 @@ export default function App() {
         </div>
       )}
 
+      {/* 3'LÜ SEÇİM EKRANI */}
       {stage === 'select' && (
         <div className="sector-screen">
           <div style={{ textAlign: 'center', maxWidth: '900px' }}>
-            <h1 className="pixel-title" style={{ fontSize: 'clamp(20px, 2.6vw, 32px)', color: '#f8fafc', margin: '0 0 12px 0', textShadow: '0 4px 0 #000, 0 0 20px rgba(56,189,248,0.6)', letterSpacing: '2px' }}>
+            <h1 className="pixel-title" style={{ fontSize: 'clamp(20px, 2.8vw, 34px)', color: '#f8fafc', margin: '0 0 12px 0', textShadow: '0 4px 0 #000, 0 0 25px rgba(56,189,248,0.7)', letterSpacing: '3px' }}>
               LANDING SECTOR
             </h1>
           </div>
@@ -541,18 +483,17 @@ export default function App() {
                 className="retro-sector-card"
                 style={{
                   borderColor: m.themeColor,
-                  boxShadow: `0 0 30px ${m.themeColor}35, inset 0 0 20px ${m.themeColor}15`
+                  boxShadow: `0 0 28px ${m.themeColor}45, inset 0 0 18px ${m.themeColor}15`
                 }}
               >
                 <div>
-                  <h3 className="pixel-title" style={{ color: m.themeColor, fontSize: '17px', margin: '0 0 4px 0', textShadow: '0 3px 0 #000', letterSpacing: '2px' }}>
+                  <h3 className="pixel-title" style={{ color: m.themeColor, fontSize: '18px', margin: '0 0 4px 0', textShadow: '0 3px 0 #000', letterSpacing: '2px' }}>
                     {m.title.split(':')[0]}
                   </h3>
                   
                   {renderPlanetArt(m.id)}
 
-                  {/* KATEGORİ AÇIKLAMALARI GERİ EKLENDİ */}
-                  <p className="retro-font" style={{ color: '#cbd5e1', fontSize: '12px', lineHeight: '1.6', marginTop: '10px' }}>
+                  <p className="retro-font" style={{ color: '#cbd5e1', fontSize: '12px', lineHeight: '1.65', marginTop: '6px', textShadow: '0 2px 0 #000' }}>
                     {m.subtitle}
                   </p>
                 </div>
@@ -568,6 +509,7 @@ export default function App() {
         </div>
       )}
 
+      {/* GEZEGENE İNİŞ VİDEOSU */}
       {stage === 'landing' && selectedMission && (
         <div style={{ position: 'relative', width: '100vw', height: '100vh', background: '#000' }}>
           <video
@@ -589,6 +531,7 @@ export default function App() {
         </div>
       )}
 
+      {/* OYUN EKRANI */}
       {stage === 'game' && selectedMission && currentScene && (
         <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '24px' }}>
           <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `2px dashed ${selectedMission.themeColor}66`, paddingBottom: '16px', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
