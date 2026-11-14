@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import ArchiveCard from './components/ArchiveCard';
+import { useEffect, useState } from 'react';
 import { expeditions } from '../../data/expeditions';
 import './ExpeditionGame.css';
 
@@ -12,15 +13,6 @@ function radarSignal(point, targets, aspect = 16 / 9) {
   const distance = Math.min(...targets.map(t => Math.hypot((point.x - t.box[0] - t.box[2] / 2) * aspect, point.y - t.box[1] - t.box[3] / 2))) / Math.hypot(100 * aspect, 100);
   const strength = Math.max(0, Math.min(1, 1 - distance / .65));
   return { strength, level: strength > .87 ? 'VERY CLOSE' : strength > .7 ? 'CLOSE' : strength > .4 ? 'WARM' : 'DISTANT', pulseIntervalMs: Math.round(1400 - strength * 1250) };
-}
-function ArchiveCard({ target, onClose }) {
-  const ref = useRef(null);
-  useEffect(() => { const previous = document.activeElement; const dialog = ref.current; dialog.showModal(); return () => { dialog.close(); previous?.focus(); }; }, []);
-  return <dialog className="ex-card" ref={ref} aria-labelledby="archive-title" onCancel={e => { e.preventDefault(); onClose(); }}>
-    <button className="ex-close" onClick={onClose} aria-label="Close card">×</button><p className="ex-eyebrow">ARCHIVE / RECOVERED</p>
-    <img src={target.image} alt={`${target.name}, pixel art illustration`} /><h2 id="archive-title">{target.name}</h2><p>{target.brief}</p>
-    <div className="ex-card-footer">COLLECTION ENTRY UNLOCKED</div><button onClick={onClose}>Return to expedition</button>
-  </dialog>;
 }
 export default function ExpeditionGame({ sector, onExit, onRadarSignal }) {
   const data = expeditions[sector.id];
@@ -80,6 +72,6 @@ export default function ExpeditionGame({ sector, onExit, onRadarSignal }) {
       {phase === 'complete' && <section className="ex-story"><p className="ex-eyebrow">EXPEDITION COMPLETE</p><h2>Forgotten no longer.</h2><p>You recovered {found.length} stories. Your collection stays with you when you return.</p><button onClick={() => navigate(0)}>Revisit missions</button><button className="ex-primary" onClick={onExit}>Choose another sector →</button></section>}
       <p className="ex-caption">Illustrated archive scenes, not historical landing-site reconstructions.{sector.id === 'deepSpace' && ' The surface backdrops are artistic composites; these spacecraft explored other destinations.'}</p>
     </section><aside className="ex-collection"><p className="ex-eyebrow">YOUR FIELD ARCHIVE</p><h2>Recovered stories</h2><p>{found.length} / {all.length} cards collected</p><div className="ex-card-grid">{all.map((t,i) => <button className={`ex-mini ${found.includes(t.id) ? 'unlocked' : ''}`} key={t.id} disabled={!found.includes(t.id)} onClick={() => openCard(t)} aria-label={`${t.name}: ${found.includes(t.id) ? 'open collected card' : 'locked'}`}><span>#{String(i + 1).padStart(2,'0')}</span><img className={found.includes(t.id) ? '' : 'ex-silhouette'} src={t.image} alt="" /><strong>{found.includes(t.id) ? t.name : 'UNKNOWN'}</strong><small>{found.includes(t.id) ? 'VIEW CARD ↗' : 'AWAITING DISCOVERY'}</small></button>)}</div></aside></div>}
-    {card && <ArchiveCard target={card} onClose={() => setCard(null)} />}
+    {card && <ArchiveCard key={card.id} target={card} onClose={() => setCard(null)} />}
   </main>;
 }
