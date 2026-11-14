@@ -1,71 +1,47 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { moonData } from './data/moonData';
 import { marsData } from './data/marsData';
 import { deepSpaceData } from './data/deepSpaceData';
 
 const missions = [moonData, marsData, deepSpaceData];
 
-// SİYAH ARKA PLANI (VE DAMALI DESENİ) OTOMATİK ŞEFFAF YAPAN AKILLI BİLEŞEN
-function TransparentPlanet({ src, alt }) {
-  const [cleanSrc, setCleanSrc] = useState(src);
+// Gezegenleri hafızada tutacak önbellek
+const planetCache = {};
+const planetListeners = {};
 
-  useEffect(() => {
+function cleanPlanetImage(src) {
+  if (planetCache[src]) return Promise.resolve(planetCache[src]);
+  if (planetListeners[src]) return planetListeners[src];
+
+  planetListeners[src] = new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
+    img.decoding = 'sync';
     img.src = src;
     img.onload = () => {
+      // Piksel art görselleri hızla işlemek için 256x256 boyuta optimize et
+      const size = 256;
       const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      ctx.drawImage(img, 0, 0);
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      canvas.width = size;
+      canvas.height = size;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(img, 0, 0, size, size);
 
-      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const imgData = ctx.getImageData(0, 0, size, size);
       const data = imgData.data;
-      const w = canvas.width;
-      const h = canvas.height;
+      const cx = size / 2;
+      const cy = size / 2;
+      const coreRadiusSq = (size * 0.25) * (size * 0.25);
 
-      // Köşelerden başlayarak (Flood Fill mantığıyla) dış arka planı tamamen şeffaf yap
-      // Böylece gezegenin kendi içindeki koyu kraterler ve siyah çerçevesi bozulmaz!
-      const visited = new Uint8Array(w * h);
-      const queue = [0, w - 1, (h - 1) * w, h * w - 1];
-
-      const isBgPixel = (idx) => {
-        const r = data[idx];
-        const g = data[idx + 1];
-        const b = data[idx + 2];
-        // Saf siyah arka plan pikselleri
-        const isBlack = r < 18 && g < 18 && b < 22;
-        return isBlack;
-      };
-
-      while (queue.length > 0) {
-        const p = queue.pop();
-        if (p < 0 || p >= w * h || visited[p]) continue;
-        visited[p] = 1;
-
-        const idx = p * 4;
-        if (isBgPixel(idx)) {
-          data[idx + 3] = 0; // Tamamen şeffaf yap!
-          const x = p % w;
-          const y = Math.floor(p / w);
-          if (x > 0) queue.push(p - 1);
-          if (x < w - 1) queue.push(p + 1);
-          if (y > 0) queue.push(p - w);
-          if (y < h - 1) queue.push(p + w);
-        }
-      }
-
-      // Yıldızların arasındaki iç siyah boşlukları da temizle (gezegenin merkez dairesi hariç)
-      const cx = w / 2;
-      const cy = h / 2;
-      const planetRadius = w * 0.28; // Gezegenin iç kısmını koru
-      for (let y = 0; y < h; y++) {
-        for (let x = 0; x < w; x++) {
-          const dist = Math.hypot(x - cx, y - cy);
-          if (dist > planetRadius) {
-            const idx = (y * w + x) * 4;
-            if (data[idx] < 18 && data[idx + 1] < 18 && data[idx + 2] < 22) {
+      for (let y = 0; y < size; y++) {
+        const dy = y - cy;
+        for (let x = 0; x < size; x++) {
+          const dx = x - cx;
+          if (dx * dx + dy * dy > coreRadiusSq) {
+            const idx = (y * size + x) * 4;
+            // Siyah arka plan piksellerini şeffaf yap
+            if (data[idx] < 22 && data[idx + 1] < 22 && data[idx + 2] < 26) {
               data[idx + 3] = 0;
             }
           }
@@ -73,11 +49,56 @@ function TransparentPlanet({ src, alt }) {
       }
 
       ctx.putImageData(imgData, 0, 0);
-      setCleanSrc(canvas.toDataURL('image/png'));
-    };
-  }, [src]);
 
-  return <img src={cleanSrc} alt={alt} className="pixel-planet-img" />;
+      canvas.toBlob((blob) => {
+        const url = blob ? URL.createObjectURL(blob) : canvas.toDataURL('image/png');
+        planetCache[src] = url;
+
+        const preImg = new Image();
+        preImg.src = url;
+        if (preImg.decode) {
+          preImg.decode().catch(() => {}).finally(() => resolve(url));
+        } else {
+          resolve(url);
+        }
+      }, 'image/png');
+    };
+  });
+
+  return planetListeners[src];
+}
+
+// Uygulama yüklenir yüklenmez 3 gezegeni arka planda şeffaflaştırıp önbelleğe al
+['/images/moon.png', '/images/mars.png', '/images/deepspace.png'].forEach(cleanPlanetImage);
+
+function TransparentPlanet({ src, alt }) {
+  const [cleanSrc, setCleanSrc] = useState(() => planetCache[src] || null);
+
+  useEffect(() => {
+    let active = true;
+    if (!planetCache[src]) {
+      cleanPlanetImage(src).then((url) => {
+        if (active) setCleanSrc(url);
+      });
+    } else if (cleanSrc !== planetCache[src]) {
+      setCleanSrc(planetCache[src]);
+    }
+    return () => { active = false; };
+  }, [src, cleanSrc]);
+
+  if (!cleanSrc) {
+    return <div style={{ width: '100%', height: '100%' }} />;
+  }
+
+  return (
+    <img
+      src={cleanSrc}
+      alt={alt}
+      decoding="sync"
+      loading="eager"
+      className="pixel-planet-img"
+    />
+  );
 }
 
 export default function App() {
