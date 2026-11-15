@@ -920,6 +920,53 @@ export default function ExpeditionGame({ sector, onExit, onRadarSignal, playerNa
           overflow-wrap: anywhere !important;
         }
 
+        .ex-sector-cleared {
+          position: fixed;
+          inset: 0;
+          margin: 0;
+          z-index: 2;
+          box-sizing: border-box;
+          width: 100%;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow-y: auto;
+          padding: 24px;
+          text-align: center;
+        }
+        .ex-sector-cleared-copy { max-width: 640px; margin: auto; }
+        .ex-sector-cleared .ex-eyebrow {
+          font: 12px/1.8 'Press Start 2P', monospace;
+          color: #fcd34d;
+          letter-spacing: 3px;
+          margin: 0 0 18px;
+          text-shadow: 0 2px 0 #000;
+        }
+        .ex-sector-cleared h2 {
+          font: clamp(24px, 3.2vw, 38px)/1.5 'Press Start 2P', monospace;
+          color: var(--sector, #38bdf8);
+          margin: 0 0 22px;
+          text-shadow: 0 4px 0 #000, 0 0 25px #000;
+        }
+        .ex-sector-cleared-description {
+          font: 14px/1.8 'Silkscreen', 'Space Mono', monospace;
+          color: #e2e8f0;
+          margin: 0 0 34px;
+          text-shadow: 0 2px 8px #000;
+        }
+        .ex-sector-cleared-actions {
+          display: flex;
+          justify-content: center;
+          flex-wrap: wrap;
+          gap: 18px;
+        }
+        .ex-sector-cleared-actions button {
+          max-width: 100%;
+          white-space: normal !important;
+          overflow-wrap: anywhere;
+          font-size: 10px !important;
+        }
       `}</style>
 
       {phase === 'returning' ? (
@@ -1324,6 +1371,21 @@ export default function ExpeditionGame({ sector, onExit, onRadarSignal, playerNa
             </div>
           )}
 
+          {phase === 'complete' && !allSectorsDone ? (
+            <section className="ex-sector-cleared" aria-labelledby="sector-cleared-title">
+              <div className="ex-sector-cleared-copy">
+                <p className="ex-eyebrow">SECTOR CLEARED</p>
+                <h2 id="sector-cleared-title">Forgotten no longer.</h2>
+                <p className="ex-sector-cleared-description">
+                  You recovered all {found.length} stories in this sector! Continue your journey across the remaining sectors to unlock your final Expedition Certificate and return to Earth.
+                </p>
+                <div className="ex-sector-cleared-actions">
+                  <button className="ex-btn-replay" onClick={() => navigate(0)}>&lt;&lt; Revisit missions</button>
+                  <button className="ex-btn-cosmos" onClick={onExit}>Choose next sector &gt;&gt;</button>
+                </div>
+              </div>
+            </section>
+          ) : (
           <div className="ex-layout">
             <section className="ex-main">
               {phase === 'briefing' && (
@@ -1438,24 +1500,6 @@ export default function ExpeditionGame({ sector, onExit, onRadarSignal, playerNa
                 </>
               )}
 
-              {/* EĞER SADECE BU SEKTÖR BİTTİYSE AMA DİĞER 2 SEKTÖR DAHA BİTMEDİYSE ÇIKAN EKRAN */}
-              {phase === 'complete' && !allSectorsDone && (
-                <section className="ex-story" style={{ justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
-                  <div style={{ maxWidth: '520px' }}>
-                    <p className="ex-eyebrow" style={{ color: '#fcd34d' }}>SECTOR CLEARED</p>
-                    <h2 style={{ fontFamily: "'Press Start 2P', monospace", color: 'var(--sector)', margin: '14px 0 20px 0' }}>
-                      Forgotten no longer.
-                    </h2>
-                    <p style={{ fontFamily: "'Silkscreen', monospace", fontSize: '13px', lineHeight: '1.7', color: '#cbd5e1', marginBottom: '26px' }}>
-                      You recovered all {found.length} stories in this sector! Continue your journey across the remaining sectors to unlock your final Expedition Certificate and return to Earth.
-                    </p>
-                    <div className="ex-brief-actions" style={{ justifyContent: 'center' }}>
-                      <button className="ex-btn-replay" onClick={() => navigate(0)}>Revisit missions</button>
-                      <button className="ex-btn-cosmos" onClick={onExit}>[ CHOOSE NEXT SECTOR &gt;&gt; ]</button>
-                    </div>
-                  </div>
-                </section>
-              )}
             </section>
 
             <aside className="ex-collection">
@@ -1487,6 +1531,7 @@ export default function ExpeditionGame({ sector, onExit, onRadarSignal, playerNa
               </div>
             </aside>
           </div>
+          )}
         </>
       )}
 
