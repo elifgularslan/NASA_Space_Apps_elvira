@@ -171,7 +171,7 @@ export default function ExpeditionGame({ sector, onExit, onRadarSignal, playerNa
           background: transparent !important;
           border: none !important;
           box-shadow: none !important;
-          padding: 18px 48px !important;
+          padding: 18px 48px 18px 72px !important;
           display: flex !important;
           align-items: center !important;
           justify-content: space-between !important;
@@ -576,6 +576,12 @@ export default function ExpeditionGame({ sector, onExit, onRadarSignal, playerNa
           display: flex !important;
           flex-direction: column !important;
           justify-content: space-between !important;
+        }
+
+        /* Clear the fixed menu button by 12px without moving the game panels. */
+        .ex-brief-header-settled,
+        .ex-mission-heading {
+          padding-left: max(0px, calc(38px - 3vw)) !important;
         }
 
         .ex-brief-header-settled {
