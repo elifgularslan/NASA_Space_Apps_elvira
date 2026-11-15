@@ -1,3 +1,4 @@
+import ExpeditionGame from './features/game/ExpeditionGame';
 import { useState, useEffect } from 'react';
 import { moonData } from './data/moonData';
 import { marsData } from './data/marsData';
@@ -69,7 +70,7 @@ function cleanPlanetImage(src) {
 }
 
 // Uygulama yüklenir yüklenmez 3 gezegeni arka planda şeffaflaştırıp önbelleğe al
-['/images/moon.png', '/images/mars.png', '/images/deepspace.png'].forEach(cleanPlanetImage);
+['/images/moon.jpg', '/images/mars.jpg', '/images/deepspace.jpg'].forEach(cleanPlanetImage);
 
 function TransparentPlanet({ src, alt }) {
   const [cleanSrc, setCleanSrc] = useState(() => planetCache[src] || null);
@@ -105,49 +106,8 @@ export default function App() {
   const [stage, setStage] = useState('intro_start');
 
   const [selectedMission, setSelectedMission] = useState(null);
-  const [currentLevelIndex, setCurrentLevelIndex] = useState(0);
-  const [foundIds, setFoundIds] = useState([]);
-  const [activeObject, setActiveObject] = useState(null);
-  const [showHint, setShowHint] = useState(false);
-
-  const handleContinueAfterReading = () => {
-    setStage('intro_end');
-  };
-
-  const handleSelectMission = (mission) => {
-    setSelectedMission(mission);
-    setCurrentLevelIndex(0);
-    setFoundIds([]);
-    setActiveObject(null);
-    setShowHint(false);
-
-    if (mission.landingVideo) {
-      setStage('landing');
-    } else {
-      setStage('game');
-    }
-  };
-
-  const currentScene = selectedMission?.scenes[currentLevelIndex];
-  const allFoundInLevel = currentScene && foundIds.length === currentScene.objects.length;
-
-  const handleObjectClick = (obj) => {
-    if (!foundIds.includes(obj.id)) {
-      setFoundIds([...foundIds, obj.id]);
-    }
-    setActiveObject(obj);
-  };
-
-  const goToNextLevel = () => {
-    if (currentLevelIndex + 1 < selectedMission.scenes.length) {
-      setCurrentLevelIndex(currentLevelIndex + 1);
-      setFoundIds([]);
-      setActiveObject(null);
-      setShowHint(false);
-    } else {
-      setStage('select');
-    }
-  };
+  const handleContinueAfterReading = () => setStage('intro_end');
+  const handleSelectMission = (mission) => { setSelectedMission(mission); setStage('game'); };
 
   const renderPlanetArt = (id) => {
     if (id === 'moon') {
@@ -531,161 +491,7 @@ export default function App() {
       )}
 
       {/* GEZEGENE İNİŞ VİDEOSU */}
-      {stage === 'landing' && selectedMission && (
-        <div style={{ position: 'relative', width: '100vw', height: '100vh', background: '#000' }}>
-          <video
-            src={selectedMission.landingVideo}
-            autoPlay
-            muted
-            playsInline
-            onEnded={() => setStage('game')}
-            onError={() => setStage('game')}
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          />
-          <button
-            onClick={() => setStage('game')}
-            className="retro-btn"
-            style={{ position: 'fixed', bottom: '30px', right: '30px' }}
-          >
-            Skip Landing &gt;&gt;
-          </button>
-        </div>
-      )}
-
-      {/* OYUN EKRANI */}
-      {stage === 'game' && selectedMission && currentScene && (
-        <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '24px' }}>
-          <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `2px dashed ${selectedMission.themeColor}66`, paddingBottom: '16px', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-            <div>
-              <span className="retro-font" style={{ fontSize: '13px', color: selectedMission.themeColor }}>
-                [{selectedMission.title.toUpperCase()}] — LEVEL {currentLevelIndex + 1} / {selectedMission.scenes.length}
-              </span>
-              <h2 className="pixel-title" style={{ margin: '6px 0 0', fontSize: '18px', color: '#f8fafc' }}>
-                {currentScene.title}
-              </h2>
-            </div>
-
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-              <span className="retro-font" style={{ color: '#fcd34d', fontSize: '14px' }}>
-                SIGNALS: {foundIds.length}/{currentScene.objects.length}
-              </span>
-              <button onClick={() => setShowHint(!showHint)} className="retro-btn" style={{ borderColor: '#fcd34d', color: '#fcd34d' }}>
-                {showHint ? 'HIDE RADAR' : 'RADAR HINT'}
-              </button>
-              <button onClick={() => setStage('select')} className="retro-btn">
-                &lt; SECTORS
-              </button>
-            </div>
-          </header>
-
-          <div style={{ position: 'relative', width: '100%', height: '520px', overflow: 'hidden', border: `3px solid ${selectedMission.themeColor}` }}>
-            <img
-              src={currentScene.backgroundImage}
-              alt={currentScene.title}
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            />
-
-            {currentScene.objects.map((obj) => {
-              const isFound = foundIds.includes(obj.id);
-              return (
-                <button
-                  key={obj.id}
-                  onClick={() => handleObjectClick(obj)}
-                  style={{
-                    position: 'absolute',
-                    left: `${obj.xPercent}%`,
-                    top: `${obj.yPercent}%`,
-                    transform: 'translate(-50%, -50%)',
-                    width: '52px',
-                    height: '52px',
-                    borderRadius: '50%',
-                    background: isFound ? 'rgba(34, 197, 94, 0.4)' : showHint ? 'rgba(251, 191, 36, 0.35)' : 'transparent',
-                    border: isFound ? '3px solid #22c55e' : showHint ? '2px dashed #fbbf24' : 'none',
-                    cursor: 'pointer'
-                  }}
-                />
-              );
-            })}
-          </div>
-
-          {activeObject && !allFoundInLevel && (
-            <div style={{ marginTop: '20px', background: '#0f172a', padding: '22px', border: `3px solid ${selectedMission.themeColor}` }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 className="pixel-title" style={{ margin: 0, fontSize: '15px', color: selectedMission.themeColor }}>
-                  SIGNAL LOCKED: {activeObject.name}
-                </h3>
-                <button onClick={() => setActiveObject(null)} className="retro-btn" style={{ padding: '6px 10px' }}>X</button>
-              </div>
-              <p className="retro-font" style={{ fontSize: '13px', color: '#fcd34d', marginTop: '10px' }}>
-                STATUS: {activeObject.status}
-              </p>
-              <p style={{ lineHeight: '1.7', fontSize: '15px', color: '#f1f5f9' }}>"{activeObject.story}"</p>
-              <div style={{ background: '#050811', padding: '12px', borderLeft: '4px solid #38bdf8', fontSize: '13px' }}>
-                <strong className="retro-font" style={{ color: '#38bdf8' }}>SCIENCE IMPACT: </strong>
-                {activeObject.scienceFact}
-              </div>
-            </div>
-          )}
-
-          <div style={{ marginTop: '20px', background: '#090d1a', padding: '18px', border: '2px solid #1e293b' }}>
-            <h4 className="retro-font" style={{ margin: '0 0 12px 0', color: '#94a3b8' }}>
-              INCOMING TELEMETRY CLUES (CLICK OBJECTS ON SCENE):
-            </h4>
-            {currentScene.objects.map((obj) => (
-              <div key={obj.id} style={{ padding: '10px 0', borderBottom: '1px dashed #1e293b', color: foundIds.includes(obj.id) ? '#22c55e' : '#e2e8f0' }}>
-                <strong className="retro-font">{foundIds.includes(obj.id) ? '[FOUND] ' : '[LOST] '} {obj.name}:</strong> <em>"{obj.clue}"</em>
-              </div>
-            ))}
-          </div>
-
-          {allFoundInLevel && (
-            <div style={{ marginTop: '30px', background: '#090d1a', border: '3px solid #22c55e', padding: '28px' }}>
-              <h2 className="pixel-title" style={{ color: '#22c55e', marginTop: 0, fontSize: '18px' }}>
-                SECTOR COMPLETE! ARCHIVE UNLOCKED
-              </h2>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '22px', marginBottom: '24px' }}>
-                <img src={currentScene.backgroundImage} alt="Original NASA Scene" style={{ width: '100%', border: '2px solid #334155' }} />
-                <div>
-                  <h3 className="retro-font" style={{ color: selectedMission.themeColor, marginTop: 0 }}>
-                    MISSION SUMMARY: {currentScene.title}
-                  </h3>
-                  <p style={{ lineHeight: '1.7', color: '#cbd5e1' }}>
-                    {currentScene.totalStory || "Every piece of hardware in this sector worked together to push the boundaries of human knowledge."}
-                  </p>
-                  <a
-                    href={currentScene.nasaArchiveLink || currentScene.objects[0]?.nasaLink}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="retro-btn"
-                    style={{ display: 'inline-block', marginTop: '14px', textDecoration: 'none', borderColor: '#38bdf8', color: '#38bdf8' }}
-                  >
-                    OFFICIAL NASA ARCHIVE &gt;&gt;
-                  </a>
-                </div>
-              </div>
-
-              <h4 className="retro-font" style={{ color: '#fcd34d', borderBottom: '1px dashed #334155', paddingBottom: '8px' }}>
-                RECOVERED HARDWARE LOGS:
-              </h4>
-              <div style={{ display: 'grid', gap: '12px', marginBottom: '24px' }}>
-                {currentScene.objects.map((obj) => (
-                  <div key={obj.id} style={{ background: '#111827', padding: '14px', borderLeft: `4px solid ${selectedMission.themeColor}` }}>
-                    <strong className="retro-font" style={{ color: selectedMission.themeColor }}>{obj.name}</strong>{' '}
-                    <span style={{ fontSize: '12px', color: '#fcd34d' }}>({obj.status})</span>
-                    <p style={{ margin: '8px 0', fontSize: '14px', color: '#e2e8f0' }}>"{obj.story}"</p>
-                    <small style={{ color: '#94a3b8' }}><strong>Science:</strong> {obj.scienceFact}</small>
-                  </div>
-                ))}
-              </div>
-
-              <button onClick={goToNextLevel} className="retro-btn" style={{ background: '#22c55e', color: '#000', borderColor: '#22c55e' }}>
-                {currentLevelIndex + 1 < selectedMission.scenes.length ? `NEXT LEVEL (LEVEL ${currentLevelIndex + 2}) >>` : 'RETURN TO SECTORS >>'}
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+      {stage === 'game' && selectedMission && <ExpeditionGame key={selectedMission.id} sector={selectedMission} onExit={() => setStage('select')} />}
     </div>
   );
 }
