@@ -139,6 +139,16 @@ export default function ExpeditionGame({ sector, onExit, onRadarSignal, playerNa
   const actionText = found.length ? 'RESUME EXPEDITION' : 'BEGIN EXPEDITION';
   const tickerMessage = `✦ ${explorerName}, if you want to discover where the story leads and find the abandoned artifacts, press ${actionText} → ✦`;
 
+// 3 SEKTÖRÜN TAMAMININ BİTİP BİTMEDİĞİNİ KONTROL EDER
+  const allSectorsDone = Object.keys(expeditions).every(secId => {
+    const secTargets = expeditions[secId].scenes.flatMap(s => s.targets.map(t => t.id));
+    if (secId === sector.id) {
+      return secTargets.every(id => found.includes(id));
+    }
+    const saved = readProgress(secId, expeditions[secId]);
+    return secTargets.every(id => saved.found.includes(id));
+  });
+
   return (
     <main className="expedition" style={{ '--sector': sector.themeColor }}>
       <style>{`
@@ -731,15 +741,69 @@ export default function ExpeditionGame({ sector, onExit, onRadarSignal, playerNa
           letter-spacing: 1px !important;
         }
 
-        /* ARAMA SAHNESİ FOTOĞRAFI (RADAR İLE BİRLİKTE EKRANA TAM SIĞAR, ALT KISMI KESİLMEZ) */
+        /* SOL KUTUYU GRID YAPAR: SOL ALTTA DEV FOTOĞRAF, SAĞINDA KONTROL PANELİ */
+        .ex-main {
+          height: 100% !important;
+          overflow: hidden !important;
+          padding: 14px 20px !important;
+          display: grid !important;
+          grid-template-columns: minmax(0, 1fr) 215px !important;
+          grid-template-rows: auto auto minmax(0, 1fr) auto !important;
+          column-gap: 20px !important;
+          row-gap: 8px !important;
+          align-items: stretch !important;
+        }
+
+        .ex-main > .ex-story {
+          grid-column: 1 / -1 !important;
+          grid-row: 1 / -1 !important;
+        }
+
+        .ex-mission-heading {
+          grid-column: 1 / -1 !important;
+          grid-row: 1 !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: space-between !important;
+          margin: 0 !important;
+        }
+        .ex-mission-heading .ex-eyebrow {
+          font-size: 9px !important;
+          margin: 0 0 2px 0 !important;
+        }
+        .ex-mission-heading h2 {
+          font-size: clamp(13px, 1.4vw, 17px) !important;
+          margin: 0 !important;
+        }
+        .ex-recovered-badge {
+          font-size: 9px !important;
+          padding: 5px 10px !important;
+        }
+
+        .ex-radar {
+          grid-column: 1 / -1 !important;
+          grid-row: 2 !important;
+          padding: 5px 10px !important;
+          margin: 0 !important;
+          gap: 10px !important;
+        }
+        .ex-radar button {
+          font-size: 9px !important;
+          padding: 5px 8px !important;
+        }
+
+        /* SOL ALT: Fotoğraf soldan başlar ve en alta kadar büyür */
         .ex-scene {
+          grid-column: 1 / 2 !important;
+          grid-row: 3 / 5 !important;
           position: relative !important;
-          width: auto !important;
-          max-width: 100% !important;
-          height: 58vh !important;
+          width: 100% !important;
+          height: 100% !important;
+          max-height: none !important;
           aspect-ratio: 16 / 9 !important;
-          margin: 0 auto !important;
-          flex-shrink: 0 !important;
+          margin: 0 !important;
+          align-self: center !important;
+          justify-self: start !important;
           border-radius: 10px !important;
           border: 2px solid var(--sector, rgba(148, 163, 184, 0.45)) !important;
           overflow: hidden !important;
@@ -753,67 +817,243 @@ export default function ExpeditionGame({ sector, onExit, onRadarSignal, playerNa
           display: block !important;
         }
 
+        /* SAĞ SÜTUN ÜST: Fotoğrafın sağındaki durum yazısı */
         .ex-feedback {
-          flex-shrink: 0 !important;
-          font-family: 'Silkscreen', 'Space Mono', monospace !important;
-          margin: 12px 0 !important;
-          font-size: 13px !important;
-          color: #fcd34d !important;
-        }
-
-        .ex-clues {
-          flex-shrink: 0 !important;
-          display: grid !important;
-          grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)) !important;
-          gap: 14px !important;
-          margin-bottom: 18px !important;
-        }
-        .ex-clues article {
-          background: rgba(5, 7, 18, 0.8) !important;
-          border-left: 3px solid var(--sector, #38bdf8) !important;
-          padding: 14px 16px !important;
-          border-radius: 6px !important;
-        }
-        .ex-clues h3 {
-          font-family: 'Press Start 2P', monospace !important;
-          font-size: 13px !important;
-          color: var(--sector, #38bdf8) !important;
-          margin: 6px 0 8px 0 !important;
-        }
-        .ex-clues p {
-          font-family: 'Silkscreen', 'Space Mono', monospace !important;
-          font-size: 12px !important;
+          grid-column: 2 / 3 !important;
+          grid-row: 3 / 4 !important;
+          align-self: end !important;
+          margin: 0 0 8px 0 !important;
+          padding: 12px !important;
+          background: rgba(5, 7, 18, 0.75) !important;
+          border: 1px dashed rgba(148, 163, 184, 0.35) !important;
+          border-radius: 8px !important;
+          font-size: 11px !important;
           line-height: 1.55 !important;
-          margin: 0 !important;
-          color: #e2e8f0 !important;
+          text-align: left !important;
         }
 
+        /* SAĞ SÜTUN ALT: Fotoğrafın sağındaki butonlar */
         .ex-nav {
-          flex-shrink: 0 !important;
+          grid-column: 2 / 3 !important;
+          grid-row: 4 / 5 !important;
+          align-self: end !important;
           display: flex !important;
-          gap: 14px !important;
-          align-items: center !important;
-          padding-top: 6px !important;
-          padding-bottom: 6px !important;
+          flex-direction: column !important;
+          gap: 10px !important;
+          width: 100% !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+        .ex-nav button,
+        .ex-nav .ex-btn-cosmos,
+        .ex-nav .ex-btn-replay {
+          width: 100% !important;
+          padding: 12px 10px !important;
+          font-size: 9.5px !important;
+          text-align: center !important;
+          justify-content: center !important;
         }
 
-        .ex-caption, .ex-debug {
+        .ex-silhouette {
+          filter: brightness(0.3) contrast(1.4) drop-shadow(0 0 12px var(--sector)) !important;
+        }
+
+        .ex-clues, .ex-caption, .ex-debug {
           display: none !important;
         }
+
+        /* YAZIYI FOTOĞRAFIN ALTINA ALIR, BUTONLARI SAĞ SÜTUNA ORTALAR */
+        .ex-scene {
+          grid-column: 1 / 2 !important;
+          grid-row: 3 / 4 !important;
+        }
+        .ex-feedback {
+          grid-column: 1 / 2 !important;
+          grid-row: 4 / 5 !important;
+          margin: 4px 0 0 0 !important;
+          padding: 0 !important;
+          background: transparent !important;
+          border: none !important;
+          text-align: center !important;
+          color: #fcd34d !important;
+        }
+        .ex-nav {
+          grid-column: 2 / 3 !important;
+          grid-row: 3 / 5 !important;
+          align-self: center !important;
+          justify-content: center !important;
+          gap: 14px !important;
+        }
+        .ex-nav button, .ex-nav .ex-btn-cosmos, .ex-nav .ex-btn-replay {
+          white-space: nowrap !important;
+          padding: 13px 8px !important;
+          font-size: 9px !important;
+        }
+
       `}</style>
 
-      {/* ÜST BAŞLIK SADECE LANDING VE STORY AŞAMALARINDA GÖRÜNÜR */}
-      {(phase === 'landing' || phase === 'story') && (
-        <header className="ex-header">
-          <div>
-            <p className="ex-eyebrow">ABANDONED, BUT NOT FORGOTTEN</p>
-            <h1>{sector.title.split(':')[0]} / Expedition</h1>
+      {phase === 'returning' ? (
+        <section className="ex-landing" style={{ zIndex: 9999 }}>
+          <video
+            src="/videos/earth/landingearth.mp4"
+            autoPlay
+            muted
+            playsInline
+            onEnded={() => setPhase('gameover')}
+            onError={() => setPhase('gameover')}
+          />
+          <div className="ex-landing-copy">
+            <p className="ex-eyebrow">FINAL DESCENT TO EARTH</p>
+            <h2>All missions accomplished. Welcome home, {explorerName}!</h2>
+            <button onClick={() => setPhase('gameover')}>
+              [ COMPLETE LANDING &gt;&gt; ]
+            </button>
           </div>
-          <button onClick={onExit}>← Sectors</button>
-        </header>
-      )}
+        </section>
+      ) : phase === 'gameover' ? (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 9999,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textAlign: 'center',
+          padding: '24px'
+        }}>
+          <img src="/videos/gif.gif" alt="Space Backdrop" className="ex-space-backdrop" />
+          <style>{`
+            @keyframes gameOverPulse {
+              0%, 100% { text-shadow: 0 5px 0 #000, 0 0 25px #fcd34d, 0 0 55px rgba(252, 211, 77, 0.55); transform: scale(1); }
+              50% { text-shadow: 0 5px 0 #000, 0 0 40px #38bdf8, 0 0 75px rgba(56, 189, 248, 0.75); transform: scale(1.03); }
+            }
+            @keyframes earthSpinFloat {
+              0%, 100% { transform: translateY(0px); }
+              50% { transform: translateY(-10px); }
+            }
+          `}</style>
 
-      {phase === 'landing' ? (
+          <div style={{ position: 'relative', zIndex: 10, maxWidth: '760px', width: '100%' }}>
+            <svg
+              viewBox="0 0 32 32"
+              shapeRendering="crispEdges"
+              style={{
+                width: '145px',
+                height: '145px',
+                marginBottom: '18px',
+                animation: 'earthSpinFloat 3.5s ease-in-out infinite',
+                filter: 'drop-shadow(0 0 26px rgba(56, 189, 248, 0.7))'
+              }}
+            >
+              {/* Dış Siyah Piksel Çerçeve */}
+              <path d="M11 1h10v1h3v1h2v1h2v2h1v2h1v3h1v10h-1v3h-1v2h-1v2h-2v1h-2v1h-3v1H11v-1H8v-1H6v-1H4v-2H3v-2H2v-3H1V11h1V8h1V6h1V4h2V3h2V2h3V1z" fill="#090d16" />
+              
+              {/* Okyanus Baz Katmanları (Derin Mavi -> Açık Mavi) */}
+              <path d="M11 2h10v1h3v1h2v2h2v2h1v3h1v10h-1v3h-1v2h-2v2h-2v1h-3v1H11v-1H8v-1H6v-2H4v-2H3v-3H2V11h1V8h1V6h2V4h2V3h3V2z" fill="#0369a1" />
+              <path d="M11 3h10v1h3v2h2v2h1v3h1v8h-1v3h-2v2h-2v1h-3v1H11v-1H8v-2H6v-2H4v-3H3V11h1V8h2V6h2V4h3V3z" fill="#0284c7" />
+              <path d="M22 18h6v3h-1v3h-2v2h-2v1h-3v1h-6v-2h3v-2h3v-3h2v-3z" fill="#1e3a8a" />
+
+              {/* Kuzey Kutup Buzulu ve Üst Bulutlar */}
+              <path d="M11 2h10v1h2v1H9V3h2V2z" fill="#f8fafc" />
+              <path d="M12 4h8v1h-8V4z" fill="#bae6fd" />
+
+              {/* Kıtalar: Kıyı Şeridi Turkuaz */}
+              <path d="M5 9h5v4H8v4h3v5H9v3H7v-4H5v-4H4v-4h1V9z" fill="#38bdf8" />
+              <path d="M13 7h11v5h3v5h-3v4h-3v4h-4v-5h-3v-5h-2v-4h1V7z" fill="#38bdf8" />
+
+              {/* Kıtalar: Yeşil Orman Alanları (Amerika, Avrupa, Afrika, Asya) */}
+              <path d="M6 7h4v2h1v3H8v2H5v-3H4V9h2V7z" fill="#65a30d" />
+              <path d="M7 16h3v2h1v4H9v3H8v-2H6v-4h1v-3z" fill="#16a34a" />
+              <path d="M8 17h2v4H8v-4z" fill="#84cc16" />
+              <path d="M15 6h8v2h3v4h2v4h-3v3h-2v-3h-4v-3h-4V9h-1V7h1V6z" fill="#65a30d" />
+              <path d="M16 7h6v2h3v3h-4v-2h-5V7z" fill="#84cc16" />
+              <path d="M15 16h5v4h-1v3h-2v-3h-2v-4z" fill="#16a34a" />
+
+              {/* Kıtalar: Sarı/Turuncu Çöl ve Kara Tonları (Sahra, Arabistan, İç Asya) */}
+              <path d="M13 13h6v3h2v2h-2v3h-2v-2h-3v-2h-1v-4z" fill="#fbbf24" />
+              <path d="M14 14h4v2h-4v-2z" fill="#fde68a" />
+              <path d="M20 13h4v3h-3v-1h-1v-2z" fill="#f59e0b" />
+              <path d="M22 10h4v2h-4v-2z" fill="#fbbf24" />
+              <path d="M6 9h2v2H6V9z" fill="#fbbf24" />
+
+              {/* Sarmal Beyaz Bulut Katmanları */}
+              <path d="M9 11h4v1h-2v2H9v-1h1v-1H9v-1z" fill="#f8fafc" />
+              <path d="M19 8h5v1h-3v1h-2V8z" fill="#f8fafc" />
+              <path d="M4 15h3v1H5v1H3v-1h1v-1z" fill="#f8fafc" />
+              <path d="M22 19h5v1h-2v1h-4v-1h1v-1z" fill="#f8fafc" />
+              <path d="M11 23h5v1h-3v1H9v-1h2v-1z" fill="#f8fafc" />
+              <path d="M16 25h8v1h-2v1h-5v-1h-1v-1z" fill="#e2e8f0" />
+              <path d="M11 28h9v1h-9v-1z" fill="#cbd5e1" />
+            </svg>
+
+            <p className="ex-eyebrow" style={{
+              fontFamily: "'Press Start 2P', monospace",
+              fontSize: '11px',
+              color: '#38bdf8',
+              letterSpacing: '4px',
+              marginBottom: '14px',
+              textShadow: '0 2px 0 #000'
+            }}>
+              ★ TRANSMISSION ENDED // EARTH ORBIT REACHED ★
+            </p>
+
+            <h1 style={{
+              fontFamily: "'Press Start 2P', monospace",
+              fontSize: 'clamp(32px, 5vw, 60px)',
+              color: '#fcd34d',
+              letterSpacing: '5px',
+              margin: '0 0 18px 0',
+              animation: 'gameOverPulse 3s ease-in-out infinite'
+            }}>
+              GAME OVER
+            </h1>
+
+            <h2 style={{
+              fontFamily: "'Press Start 2P', monospace",
+              fontSize: 'clamp(13px, 1.6vw, 18px)',
+              color: '#f8fafc',
+              letterSpacing: '2px',
+              margin: '0 0 20px 0',
+              textShadow: '0 3px 0 #000'
+            }}>
+              THANK YOU FOR PLAYING, COMMANDER {explorerName.toUpperCase()}!
+            </h2>
+
+            <p style={{
+              fontFamily: "'Silkscreen', 'Space Mono', monospace",
+              fontSize: '14px',
+              lineHeight: '1.8',
+              color: '#cbd5e1',
+              maxWidth: '620px',
+              margin: '0 auto 34px auto',
+              textShadow: '0 2px 6px #000'
+            }}>
+              Every silent probe, rover, and telescope across the cosmos has been recovered and archived. Their stories now live on back on Earth.
+            </p>
+
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '18px', flexWrap: 'wrap' }}>
+              <button
+                className="ex-btn-cosmos"
+                style={{ padding: '16px 26px', fontSize: '12px' }}
+                onClick={() => {
+                  Object.keys(expeditions).forEach(id => sessionStorage.removeItem(storageKey(id)));
+                  onExit();
+                }}
+              >
+                [ ↺ PLAY AGAIN / RESTART EXPEDITION ]
+              </button>
+              <button
+                className="ex-btn-replay"
+                style={{ padding: '16px 24px', fontSize: '11px' }}
+                onClick={onExit}
+              >
+                [ RETURN TO SECTOR MAP ]
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : phase === 'landing' ? (
         <section className="ex-landing">
           {!videoError && (
             <video
@@ -836,11 +1076,7 @@ export default function ExpeditionGame({ sector, onExit, onRadarSignal, playerNa
         </section>
       ) : phase === 'story' ? (
         <>
-          <img
-            src={storyBgGif}
-            alt="Sector Story Background"
-            className="ex-story-bg-gif"
-          />
+          <img src={storyBgGif} alt="Sector Story Background" className="ex-story-bg-gif" />
           <section className="ex-story-fullscreen">
             <div className="ex-story-floater">
               <h2 className="ex-story-title">The Silence Has A Story</h2>
@@ -867,16 +1103,203 @@ export default function ExpeditionGame({ sector, onExit, onRadarSignal, playerNa
             </div>
           </div>
         </>
+      ) : phase === 'complete' && allSectorsDone ? (
+        /* 3 SEKTÖRÜN TAMAMI BİTTİĞİNDE AÇILAN TAM EKRAN ASTRONOTLU RETRO SERTİFİKA */
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 9000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '32px'
+        }}>
+          <img src="/videos/gif.gif" alt="Space Backdrop" className="ex-space-backdrop" />
+
+          <div style={{
+            position: 'relative',
+            zIndex: 10,
+            display: 'grid',
+            gridTemplateColumns: '300px minmax(0, 680px)',
+            gap: '36px',
+            alignItems: 'center',
+            maxWidth: '1040px',
+            width: '100%',
+            background: 'rgba(6, 8, 22, 0.92)',
+            border: '3px solid #fcd34d',
+            borderRadius: '18px',
+            padding: '36px 42px',
+            boxShadow: '0 0 60px rgba(252, 211, 77, 0.28), inset 0 0 30px rgba(252, 211, 77, 0.08)',
+            backdropFilter: 'blur(12px)'
+          }}>
+            {/* SOL TARAF: SÜZÜLEN RETRO PIXEL ASTRONOT VE KARTI */}
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: ' radial-gradient(circle, rgba(56,189,248,0.18) 0%, rgba(5,7,18,0.95) 75%)',
+              border: '2px dashed rgba(252, 211, 77, 0.5)',
+              borderRadius: '14px',
+              padding: '28px 18px',
+              textAlign: 'center'
+            }}>
+              <style>{`
+                @keyframes astroFloat {
+                  0%, 100% { transform: translateY(0px) rotate(-2deg); }
+                  50% { transform: translateY(-12px) rotate(2deg); }
+                }
+              `}</style>
+              <svg
+                viewBox="0 0 64 64"
+                style={{
+                  width: '165px',
+                  height: '165px',
+                  animation: 'astroFloat 3.6s ease-in-out infinite',
+                  filter: 'drop-shadow(0 0 18px rgba(56, 189, 248, 0.65))'
+                }}
+              >
+                {/* Retro Pixel-Art Astronaut SVG */}
+                <rect x="16" y="18" width="32" height="30" rx="4" fill="#94a3b8" />
+                <rect x="20" y="8" width="24" height="22" rx="6" fill="#f8fafc" stroke="#0f172a" strokeWidth="2" />
+                <rect x="24" y="12" width="16" height="12" rx="3" fill="#0284c7" />
+                <rect x="26" y="14" width="6" height="3" fill="#bae6fd" />
+                <rect x="20" y="30" width="24" height="18" rx="3" fill="#e2e8f0" stroke="#0f172a" strokeWidth="2" />
+                <rect x="25" y="34" width="14" height="8" fill="#1e293b" />
+                <rect x="27" y="36" width="3" height="4" fill="#ef4444" />
+                <rect x="32" y="36" width="5" height="4" fill="#fcd34d" />
+                <rect x="12" y="31" width="8" height="14" rx="3" fill="#f8fafc" stroke="#0f172a" strokeWidth="2" />
+                <rect x="44" y="31" width="8" height="14" rx="3" fill="#f8fafc" stroke="#0f172a" strokeWidth="2" />
+                <rect x="21" y="48" width="9" height="11" rx="2" fill="#f8fafc" stroke="#0f172a" strokeWidth="2" />
+                <rect x="34" y="48" width="9" height="11" rx="2" fill="#f8fafc" stroke="#0f172a" strokeWidth="2" />
+                <rect x="20" y="56" width="11" height="5" rx="2" fill="#fcd34d" />
+                <rect x="33" y="56" width="11" height="5" rx="2" fill="#fcd34d" />
+              </svg>
+
+              <span style={{
+                fontFamily: "'Press Start 2P', monospace",
+                fontSize: '10px',
+                color: '#38bdf8',
+                letterSpacing: '2px',
+                marginTop: '14px'
+              }}>
+                COMMANDER
+              </span>
+              <strong style={{
+                fontFamily: "'Press Start 2P', monospace",
+                fontSize: '15px',
+                color: '#fcd34d',
+                marginTop: '8px',
+                textShadow: '0 2px 0 #000'
+              }}>
+                {explorerName}
+              </strong>
+              <span style={{
+                fontFamily: "'Silkscreen', monospace",
+                fontSize: '11px',
+                color: '#94a3b8',
+                marginTop: '8px'
+              }}>
+                3 / 3 SECTORS CLEARED
+              </span>
+            </div>
+
+            {/* SAĞ TARAF: RETRO SERTİFİKA */}
+            <div style={{
+              border: '4px double #fcd34d',
+              background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.95) 0%, rgba(5, 7, 18, 0.98) 100%)',
+              borderRadius: '12px',
+              padding: '30px 34px',
+              position: 'relative',
+              textAlign: 'center',
+              boxShadow: 'inset 0 0 24px rgba(252, 211, 77, 0.15)'
+            }}>
+              <div style={{
+                display: 'inline-block',
+                padding: '6px 14px',
+                background: 'rgba(252, 211, 77, 0.14)',
+                border: '1px solid #fcd34d',
+                borderRadius: '4px',
+                fontFamily: "'Press Start 2P', monospace",
+                fontSize: '10px',
+                color: '#fcd34d',
+                letterSpacing: '2.5px',
+                marginBottom: '16px'
+              }}>
+                ★ OFFICIAL SPACE ARCHIVE DIPLOMA ★
+              </div>
+
+              <h2 style={{
+                fontFamily: "'Press Start 2P', monospace",
+                fontSize: 'clamp(16px, 2vw, 22px)',
+                color: '#f8fafc',
+                letterSpacing: '2px',
+                margin: '0 0 18px 0',
+                textShadow: '0 3px 0 #000, 0 0 15px rgba(252, 211, 77, 0.5)'
+              }}>
+                KEEPER OF LOST ECHOES
+              </h2>
+
+              <p style={{
+                fontFamily: "'Silkscreen', 'Space Mono', monospace",
+                fontSize: '13px',
+                lineHeight: '1.75',
+                color: '#e2e8f0',
+                margin: '0 0 16px 0'
+              }}>
+                This honors astronaut <strong style={{ color: '#fcd34d' }}>{explorerName}</strong> for locating every forgotten probe, rover, and telescope across the Moon, Mars, and Deep Space—illuminating the silent history of human exploration.
+              </p>
+
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-around',
+                alignItems: 'center',
+                borderTop: '1px dashed rgba(148, 163, 184, 0.35)',
+                borderBottom: '1px dashed rgba(148, 163, 184, 0.35)',
+                padding: '12px 0',
+                margin: '18px 0 24px 0',
+                fontFamily: "'Press Start 2P', monospace",
+                fontSize: '9px',
+                color: '#38bdf8'
+              }}>
+                <span>✓ MOON ARCHIVED</span>
+                <span>✓ MARS ARCHIVED</span>
+                <span>✓ DEEP SPACE ARCHIVED</span>
+              </div>
+
+              <p style={{
+                fontFamily: "'Press Start 2P', monospace",
+                fontSize: '10px',
+                color: '#fcd34d',
+                margin: '0 0 22px 0',
+                letterSpacing: '1.5px'
+              }}>
+                ALL MISSIONS COMPLETE — TIME TO RETURN HOME
+              </p>
+
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '14px' }}>
+                <button
+                  className="ex-btn-cosmos"
+                  onClick={() => {
+                    setVideoError(false);
+                    setPhase('returning');
+                  }}
+                  style={{
+                    padding: '16px 28px',
+                    fontSize: '12px',
+                    boxShadow: '0 0 22px rgba(252, 211, 77, 0.4)'
+                  }}
+                >
+                  [ RETURN TO EARTH &gt;&gt; ]
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       ) : (
         <>
-          {/* EN ARKADA BİZİM UZAY GIF.GIF */}
-          <img
-            src="/videos/gif.gif"
-            alt="Space Backdrop"
-            className="ex-space-backdrop"
-          />
+          <img src="/videos/gif.gif" alt="Space Backdrop" className="ex-space-backdrop" />
 
-          {/* EKRANIN TAM ORTASINDAN POP-UP YAPIP SOL ÜSTE KAYAN MİSYON BAŞLIĞI */}
           {phase === 'briefing' && (
             <div className="ex-center-popup-banner" key={`popup-${index}-${introKey}`}>
               <span>MISSION {index + 1} / {data.scenes.length}</span>
@@ -894,7 +1317,7 @@ export default function ExpeditionGame({ sector, onExit, onRadarSignal, playerNa
                   </div>
 
                   <div className="ex-brief-body-fade">
-                    <p style={{ margin: '6px 0 10px 0', fontSize: '14px', color: '#cbd5e1', fontFamily: "'Silkscreen', monospace" }}>
+                    <p style={{ margin: '4px 0 8px 0', fontSize: '13px', color: '#cbd5e1', fontFamily: "'Silkscreen', monospace" }}>
                       Recover {scene.targets.length === 1 ? 'this explorer’s story' : 'both explorers’ stories'}. Look for their shapes among the forgotten machines.
                     </p>
 
@@ -931,6 +1354,7 @@ export default function ExpeditionGame({ sector, onExit, onRadarSignal, playerNa
                       {scene.targets.length - remaining.length}/{scene.targets.length} RECOVERED
                     </span>
                   </div>
+
                   <div className="ex-radar">
                     <button
                       disabled={active || hintUsed || !remaining.length}
@@ -945,23 +1369,24 @@ export default function ExpeditionGame({ sector, onExit, onRadarSignal, playerNa
                     >
                       Radar hint {active ? seconds + 's' : hintUsed ? ' / Used' : ' / 5s / 1 use'}
                     </button>
-                    <span role="status">{active ? point ? signal.level : 'Move your pointer or touch the scene' : 'SCANNER STANDBY'}</span>
+                    <span role="status">{active ? point ? signal.level : 'Move pointer or touch scene' : 'SCANNER STANDBY'}</span>
                     <meter min="0" max="1" value={active ? signal.strength : 0} aria-label="Radar proximity" />
                     <span className="ex-pulse" style={{ opacity: active ? 1 : .2, animationDuration: `${signal.pulseIntervalMs}ms` }} />
                   </div>
+
                   <div
                     className="ex-scene"
                     onPointerMove={locate}
                     onPointerDown={locate}
-                    onClick={() => setWarning({ text: 'No match. Follow the mission clues and keep searching.' })}
+                    onClick={() => setWarning({ text: 'No match. Keep searching the scene.' })}
                   >
                     {imageError ? (
                       <div className="ex-story">
                         <p>Scene could not load.</p>
-                        <button onClick={e => { e.stopPropagation(); setImageError(false); }}>Retry image</button>
+                        <button onClick={e => { e.stopPropagation(); setImageError(false); }}>Retry</button>
                       </div>
                     ) : (
-                      <img key={scene.id} src={scene.image} alt={`${scene.title}, illustrated hidden-object scene`} onError={() => setImageError(true)} draggable={false} />
+                      <img key={scene.id} src={scene.image} alt={`${scene.title} scene`} onError={() => setImageError(true)} draggable={false} />
                     )}
                     {!imageError && scene.targets.map((t, i) => (
                       <button
@@ -976,21 +1401,14 @@ export default function ExpeditionGame({ sector, onExit, onRadarSignal, playerNa
                       </button>
                     ))}
                   </div>
+
                   <p className="ex-feedback" role="status">
-                    {warning?.text || (remaining.length ? 'Search the scene. Every machine has a story.' : 'All mission targets recovered. Your archive is growing.')}
+                    {warning?.text || (remaining.length ? 'Search the scene. Every machine has a story.' : 'All targets recovered!')}
                   </p>
-                  <div className="ex-clues">
-                    {scene.targets.map(t => (
-                      <article key={t.id}>
-                        <span className="ex-eyebrow">{found.includes(t.id) ? 'RECOVERED' : 'SEARCH TARGET'}</span>
-                        <h3>{t.name}</h3>
-                        <p>{t.brief}</p>
-                      </article>
-                    ))}
-                  </div>
+
                   <nav className="ex-nav">
                     <button className="ex-btn-replay" onClick={() => navigate(index)}>← BRIEFING</button>
-                    {index > 0 && <button className="ex-btn-replay" onClick={() => navigate(index - 1, 'search')}>PREVIOUS MISSION</button>}
+                    {index > 0 && <button className="ex-btn-replay" onClick={() => navigate(index - 1, 'search')}>PREVIOUS</button>}
                     <button
                       className="ex-btn-cosmos"
                       disabled={remaining.length > 0}
@@ -1002,33 +1420,20 @@ export default function ExpeditionGame({ sector, onExit, onRadarSignal, playerNa
                 </>
               )}
 
-              {phase === 'complete' && (
-                <section className="ex-story" style={{ textAlign: 'center', justifyContent: 'center', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <div style={{
-                    border: '3px double #fcd34d',
-                    padding: '24px 28px',
-                    background: 'rgba(5, 7, 18, 0.94)',
-                    borderRadius: '12px',
-                    boxShadow: '0 0 35px rgba(252, 211, 77, 0.3)',
-                    maxWidth: '580px',
-                    width: '100%'
-                  }}>
-                    <p className="ex-eyebrow" style={{ color: '#fcd34d', letterSpacing: '3px', marginBottom: '10px' }}>
-                      ★ CERTIFICATE OF EXPEDITION ★
-                    </p>
-                    <h2 style={{ fontFamily: "'Press Start 2P', monospace", fontSize: 'clamp(13px, 1.6vw, 18px)', color: 'var(--sector)', margin: '10px 0 16px 0' }}>
-                      CHRONICLES RESTORED
+              {/* EĞER SADECE BU SEKTÖR BİTTİYSE AMA DİĞER 2 SEKTÖR DAHA BİTMEDİYSE ÇIKAN EKRAN */}
+              {phase === 'complete' && !allSectorsDone && (
+                <section className="ex-story" style={{ justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
+                  <div style={{ maxWidth: '520px' }}>
+                    <p className="ex-eyebrow" style={{ color: '#fcd34d' }}>SECTOR CLEARED</p>
+                    <h2 style={{ fontFamily: "'Press Start 2P', monospace", color: 'var(--sector)', margin: '14px 0 20px 0' }}>
+                      Forgotten no longer.
                     </h2>
-                    <p style={{ fontFamily: "'Silkscreen', 'Space Mono', monospace", fontSize: '12px', lineHeight: '1.7', color: '#e2e8f0', margin: '14px 0' }}>
-                      This certifies that explorer <strong style={{ color: '#fcd34d' }}>{explorerName}</strong> has successfully uncovered all abandoned artifacts, shedding light upon the forgotten echoes of the cosmos.
+                    <p style={{ fontFamily: "'Silkscreen', monospace", fontSize: '13px', lineHeight: '1.7', color: '#cbd5e1', marginBottom: '26px' }}>
+                      You recovered all {found.length} stories in this sector! Continue your journey across the remaining sectors to unlock your final Expedition Certificate and return to Earth.
                     </p>
-                    <p style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '9px', color: '#94a3b8', margin: '14px 0 22px 0', letterSpacing: '1px' }}>
-                      MISSION ACCOMPLISHED — SECTOR SECURED
-                    </p>
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
-                      <button className="ex-btn-cosmos" onClick={() => setPhase('returning')}>
-                        [ RETURN TO EARTH &gt;&gt; ]
-                      </button>
+                    <div className="ex-brief-actions" style={{ justifyContent: 'center' }}>
+                      <button className="ex-btn-replay" onClick={() => navigate(0)}>Revisit missions</button>
+                      <button className="ex-btn-cosmos" onClick={onExit}>[ CHOOSE NEXT SECTOR &gt;&gt; ]</button>
                     </div>
                   </div>
                 </section>
