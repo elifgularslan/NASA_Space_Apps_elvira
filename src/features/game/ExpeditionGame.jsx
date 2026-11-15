@@ -1,5 +1,7 @@
+import { playSound, stopSound, useMusic, useRadarAudio } from '../audio/audio';
 import ArchiveCard from './components/ArchiveCard';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import useSceneGeometry from './useSceneGeometry';
 import { expeditions } from '../../data/expeditions';
 import './ExpeditionGame.css';
 
@@ -20,13 +22,13 @@ function readProgress(id, data) {
 }
 
 function radarSignal(point, targets, aspect = 16 / 9) {
-  if (!point || !targets.length) return { strength: 0, level: 'AWAITING SCAN', pulseIntervalMs: 1400 };
+  if (!point || !targets.length) return { strength: 0, level: 'AWAITING SCAN', pulseIntervalMs: 650 };
   const distance = Math.min(...targets.map(t => Math.hypot((point.x - t.box[0] - t.box[2] / 2) * aspect, point.y - t.box[1] - t.box[3] / 2))) / Math.hypot(100 * aspect, 100);
   const strength = Math.max(0, Math.min(1, 1 - distance / .65));
   return {
     strength,
     level: strength > .87 ? 'VERY CLOSE' : strength > .7 ? 'CLOSE' : strength > .4 ? 'WARM' : 'DISTANT',
-    pulseIntervalMs: Math.round(1400 - strength * 1250)
+    pulseIntervalMs: Math.round(110 + 540 * (1 - strength) ** 2)
   };
 }
 
@@ -67,13 +69,24 @@ export default function ExpeditionGame({ sector, onExit, onRadarSignal, playerNa
   const [debug, setDebug] = useState(false);
   const [introKey, setIntroKey] = useState(0);
 
+  useMusic(phase === 'gameover' ? 'gameover' : phase === 'returning' ? 'home' : ['story', 'briefing', 'search'].includes(phase) ? sector.id : null);
+
+  useEffect(() => {
+    if (!card) return;
+    return () => ['win', 'open', 'flip'].forEach(stopSound);
+  }, [card]);
+
   const scene = data.scenes[index];
+  const sceneRef = useRef(null);
+  const geometry = useSceneGeometry(sceneRef, scene.id, phase, imageError);
   const hintUsed = radarUsed.includes(scene.id);
   const all = data.scenes.flatMap(s => s.targets);
   const remaining = scene.targets.filter(t => !found.includes(t.id));
   const seconds = Math.max(0, Math.ceil((radarUntil - now) / 1000));
   const active = radarUntil > 0 && seconds > 0 && phase === 'search' && !card;
-  const signal = radarSignal(active ? point : null, remaining, aspect);
+  const signal = radarSignal(active ? point : null, remaining, geometry?.aspect || aspect);
+
+  useRadarAudio(active, signal.strength, signal.pulseIntervalMs);
 
   useEffect(() => {
     try {
@@ -117,6 +130,7 @@ export default function ExpeditionGame({ sector, onExit, onRadarSignal, playerNa
   }
 
   function openCard(target) {
+    playSound('open');
     setCard(target);
     setRadarUntil(0);
   }
@@ -124,15 +138,19 @@ export default function ExpeditionGame({ sector, onExit, onRadarSignal, playerNa
   function discover(target) {
     setFound(ids => ids.includes(target.id) ? ids : [...ids, target.id]);
     setWarning(null);
-    openCard(target);
+    playSound(found.includes(target.id) ? 'open' : 'win');
+    setCard(target);
+    setRadarUntil(0);
   }
 
   function locate(event) {
-    const rect = event.currentTarget.getBoundingClientRect();
-    setAspect(rect.width / rect.height);
+    if (!geometry) return;
+    const container = event.currentTarget;
+    const rect = container.getBoundingClientRect();
+    setAspect(geometry.aspect);
     setPoint({
-      x: (event.clientX - rect.left) / rect.width * 100,
-      y: (event.clientY - rect.top) / rect.height * 100
+      x: (event.clientX - rect.left - container.clientLeft - geometry.left) / geometry.width * 100,
+      y: (event.clientY - rect.top - container.clientTop - geometry.top) / geometry.height * 100
     });
   }
 
@@ -148,6 +166,10 @@ export default function ExpeditionGame({ sector, onExit, onRadarSignal, playerNa
     const saved = readProgress(secId, expeditions[secId]);
     return secTargets.every(id => saved.found.includes(id));
   });
+
+  useEffect(() => {
+    if (phase === 'complete' && allSectorsDone) playSound('complete');
+  }, [phase, allSectorsDone]);
 
   return (
     <main className="expedition" style={{ '--sector': sector.themeColor }}>
@@ -852,6 +874,12 @@ export default function ExpeditionGame({ sector, onExit, onRadarSignal, playerNa
           font-size: 9.5px !important;
           text-align: center !important;
           justify-content: center !important;
+          box-sizing: border-box !important;
+          min-width: 0 !important;
+          margin-left: 0 !important;
+          margin-right: 0 !important;
+          white-space: normal !important;
+          overflow-wrap: anywhere !important;
         }
 
         .ex-silhouette {
@@ -885,9 +913,11 @@ export default function ExpeditionGame({ sector, onExit, onRadarSignal, playerNa
           gap: 14px !important;
         }
         .ex-nav button, .ex-nav .ex-btn-cosmos, .ex-nav .ex-btn-replay {
-          white-space: nowrap !important;
+          white-space: normal !important;
           padding: 13px 8px !important;
-          font-size: 9px !important;
+          font-size: 8px !important;
+          letter-spacing: 0 !important;
+          overflow-wrap: anywhere !important;
         }
 
       `}</style>
@@ -1070,7 +1100,7 @@ export default function ExpeditionGame({ sector, onExit, onRadarSignal, playerNa
             <p className="ex-eyebrow">DESCENT SEQUENCE</p>
             <h2>{videoError ? 'Your expedition is ready.' : 'A new world. Forgotten stories.'}</h2>
             <button onClick={() => setPhase('story')}>
-              {videoError ? 'Continue' : 'Skip landing →'}
+              {videoError ? 'Continue' : 'Skip landing >>'}
             </button>
           </div>
         </section>
@@ -1150,31 +1180,18 @@ export default function ExpeditionGame({ sector, onExit, onRadarSignal, playerNa
                   50% { transform: translateY(-12px) rotate(2deg); }
                 }
               `}</style>
-              <svg
-                viewBox="0 0 64 64"
+              <img
+                src="/videos/astronaut-wave.png"
+                alt="Astronaut waving hello"
                 style={{
                   width: '165px',
                   height: '165px',
+                  objectFit: 'contain',
+                  imageRendering: 'pixelated',
                   animation: 'astroFloat 3.6s ease-in-out infinite',
                   filter: 'drop-shadow(0 0 18px rgba(56, 189, 248, 0.65))'
                 }}
-              >
-                {/* Retro Pixel-Art Astronaut SVG */}
-                <rect x="16" y="18" width="32" height="30" rx="4" fill="#94a3b8" />
-                <rect x="20" y="8" width="24" height="22" rx="6" fill="#f8fafc" stroke="#0f172a" strokeWidth="2" />
-                <rect x="24" y="12" width="16" height="12" rx="3" fill="#0284c7" />
-                <rect x="26" y="14" width="6" height="3" fill="#bae6fd" />
-                <rect x="20" y="30" width="24" height="18" rx="3" fill="#e2e8f0" stroke="#0f172a" strokeWidth="2" />
-                <rect x="25" y="34" width="14" height="8" fill="#1e293b" />
-                <rect x="27" y="36" width="3" height="4" fill="#ef4444" />
-                <rect x="32" y="36" width="5" height="4" fill="#fcd34d" />
-                <rect x="12" y="31" width="8" height="14" rx="3" fill="#f8fafc" stroke="#0f172a" strokeWidth="2" />
-                <rect x="44" y="31" width="8" height="14" rx="3" fill="#f8fafc" stroke="#0f172a" strokeWidth="2" />
-                <rect x="21" y="48" width="9" height="11" rx="2" fill="#f8fafc" stroke="#0f172a" strokeWidth="2" />
-                <rect x="34" y="48" width="9" height="11" rx="2" fill="#f8fafc" stroke="#0f172a" strokeWidth="2" />
-                <rect x="20" y="56" width="11" height="5" rx="2" fill="#fcd34d" />
-                <rect x="33" y="56" width="11" height="5" rx="2" fill="#fcd34d" />
-              </svg>
+              />
 
               <span style={{
                 fontFamily: "'Press Start 2P', monospace",
@@ -1333,7 +1350,7 @@ export default function ExpeditionGame({ sector, onExit, onRadarSignal, playerNa
 
                     <div className="ex-brief-actions">
                       <button className="ex-btn-replay" onClick={() => index ? navigate(index - 1) : setPhase('story')}>
-                        ← BACK
+                        &lt;&lt; BACK
                       </button>
                       <button className="ex-btn-cosmos" onClick={() => setPhase('search')}>
                         [ ENTER SEARCH AREA &gt;&gt; ]
@@ -1376,9 +1393,10 @@ export default function ExpeditionGame({ sector, onExit, onRadarSignal, playerNa
 
                   <div
                     className="ex-scene"
+                    ref={sceneRef}
                     onPointerMove={locate}
                     onPointerDown={locate}
-                    onClick={() => setWarning({ text: 'No match. Keep searching the scene.' })}
+                    onClick={() => { playSound('wrong', .4); setWarning({ text: 'No match. Keep searching the scene.' }); }}
                   >
                     {imageError ? (
                       <div className="ex-story">
@@ -1393,7 +1411,7 @@ export default function ExpeditionGame({ sector, onExit, onRadarSignal, playerNa
                         key={t.id}
                         aria-label={`Inspect object ${i + 1}`}
                         className={`ex-hit ${found.includes(t.id) ? 'recovered' : ''} ${debug ? 'debug' : ''}`}
-                        style={{ left: `${t.box[0]}%`, top: `${t.box[1]}%`, width: `${t.box[2]}%`, height: `${t.box[3]}%` }}
+                        style={geometry ? { left: geometry.left + t.box[0] / 100 * geometry.width, top: geometry.top + t.box[1] / 100 * geometry.height, width: t.box[2] / 100 * geometry.width, height: t.box[3] / 100 * geometry.height } : { visibility: 'hidden' }}
                         onFocus={() => setPoint({ x: t.box[0] + t.box[2] / 2, y: t.box[1] + t.box[3] / 2 })}
                         onClick={e => { e.stopPropagation(); discover(t); }}
                       >
@@ -1407,14 +1425,14 @@ export default function ExpeditionGame({ sector, onExit, onRadarSignal, playerNa
                   </p>
 
                   <nav className="ex-nav">
-                    <button className="ex-btn-replay" onClick={() => navigate(index)}>← BRIEFING</button>
-                    {index > 0 && <button className="ex-btn-replay" onClick={() => navigate(index - 1, 'search')}>PREVIOUS</button>}
+                    <button className="ex-btn-replay" onClick={() => navigate(index)}>&lt;&lt; BRIEFING</button>
+                    {index > 0 && <button className="ex-btn-replay" onClick={() => navigate(index - 1, 'search')}>&lt;&lt; PREVIOUS</button>}
                     <button
                       className="ex-btn-cosmos"
                       disabled={remaining.length > 0}
                       onClick={() => index + 1 < data.scenes.length ? navigate(index + 1) : navigate(index, 'complete')}
                     >
-                      {index + 1 === data.scenes.length ? '[ COMPLETE EXPEDITION >> ]' : '[ NEXT MISSION >> ]'}
+                      {index + 1 === data.scenes.length ? 'COMPLETE EXPEDITION >>' : '[ NEXT MISSION >> ]'}
                     </button>
                   </nav>
                 </>
@@ -1443,7 +1461,7 @@ export default function ExpeditionGame({ sector, onExit, onRadarSignal, playerNa
             <aside className="ex-collection">
               <div className="ex-archive-top-bar">
                 <p className="ex-eyebrow" style={{ margin: 0 }}>YOUR FIELD ARCHIVE</p>
-                <button onClick={onExit}>← SECTORS</button>
+                <button onClick={onExit}>&lt;&lt; SECTORS</button>
               </div>
               <h2 style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '15px', margin: '6px 0 8px 0' }}>
                 Recovered stories
