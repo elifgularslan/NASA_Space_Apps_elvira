@@ -1,3 +1,4 @@
+import GameSidebar from './features/game/components/GameSidebar';
 import ExpeditionGame from './features/game/ExpeditionGame';
 import { useState, useEffect, useRef } from 'react';
 import { moonData } from './data/moonData';
@@ -160,6 +161,7 @@ export default function App() {
 
   return (
     <div className="space-app-root">
+      <GameSidebar onRestart={() => window.location.reload()} />
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
 

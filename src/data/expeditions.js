@@ -225,7 +225,7 @@ export const expeditions = {
       {
         "id": "dawn",
         "title": "Worlds beyond Mars",
-        "image": "/images/mars/background/01_Dawn_Mars.png",
+        "image": "/images/deepspace/background/DeepSpace_mission1.png",
         "targets": [
           {
             "id": "dawn",
@@ -244,7 +244,7 @@ export const expeditions = {
       {
         "id": "near",
         "title": "An asteroid landing",
-        "image": "/images/mars/background/02_NEAR_Shoemaker_Mars.png",
+        "image": "/images/deepspace/background/DeepSpace_mission2.png",
         "targets": [
           {
             "id": "near",
@@ -263,7 +263,7 @@ export const expeditions = {
       {
         "id": "pioneers",
         "title": "Messages in the dark",
-        "image": "/images/mars/background/03_Pioneer_10_ve_11_Mars.png",
+        "image": "/images/deepspace/background/DeepSpace_mission3.png",
         "targets": [
           {
             "id": "pioneer10",
@@ -294,7 +294,7 @@ export const expeditions = {
       {
         "id": "kepler",
         "title": "A sky full of worlds",
-        "image": "/images/mars/background/05_Kepler_Mars.png",
+        "image": "/images/deepspace/background/DeepSpace_mission4.png",
         "targets": [
           {
             "id": "kepler",
