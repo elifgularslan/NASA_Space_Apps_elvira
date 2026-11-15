@@ -807,7 +807,25 @@ export default function ExpeditionGame({ sector, onExit, onRadarSignal, playerNa
         </header>
       )}
 
-      {phase === 'landing' ? (
+      {phase === 'returning' ? (
+        <section className="ex-landing">
+          <video
+            src="/videos/landingearth.mp4"
+            autoPlay
+            muted
+            playsInline
+            onEnded={onExit}
+            onError={onExit}
+          />
+          <div className="ex-landing-copy">
+            <p className="ex-eyebrow">FINAL DESCENT</p>
+            <h2>Welcome home, {explorerName}. Mission complete.</h2>
+            <button onClick={onExit}>
+              [ COMPLETE JOURNEY ]
+            </button>
+          </div>
+        </section>
+      ) : phase === 'landing' ? (
         <section className="ex-landing">
           {!videoError && (
             <video
