@@ -1,7 +1,7 @@
 // Coordinates are percentages of the original, uncropped image. Paired identities are illustrative assignments.
 export const expeditions = {
   "moon": {
-    "video": "/videos/moon/WhatsApp Video 2026-11-14 at 20.19.12.mp4",
+    "video": "/videos/moon/landingmoon.mp4",
     "story": "Landing confirmed. Beyond these windows lie the footprints of a generation. Their machines stayed behind. Let’s recover their stories, one discovery at a time.",
     "scenes": [
       {
